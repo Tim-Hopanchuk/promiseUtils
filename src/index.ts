@@ -1,14 +1,17 @@
 "use strict";
 
-export function sleep(timeout: number) {
+export function sleep(timeout: number): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     setTimeout(resolve, timeout);
   });
 }
 
-export function wait(callback: () => Promise<unknown>, timeout: number) {
+export function wait<T>(
+  callback: () => Promise<T>,
+  timeout: number
+): Promise<string | T> {
   return Promise.race([
-    new Promise((resolve, reject) => {
+    new Promise<string>((resolve, reject) => {
       setTimeout(() => reject("Rejected: timeout"), timeout);
     }),
     callback(),
@@ -16,38 +19,36 @@ export function wait(callback: () => Promise<unknown>, timeout: number) {
 }
 
 export async function waitFor(
-  callback: () => unknown,
+  callback: () => boolean,
   timeout: number,
-  count: number
-) {
-  for (let i = 0; i < count; i++) {
+  tries: number
+): Promise<string> {
+  for (let i = 0; i < tries; i++) {
     try {
       if (callback()) {
-        return "Resolved: callback";
+        return "Resolved: callback succeed";
       }
     } catch {
-      return Promise.reject("Rejected: callback error");
+      return Promise.reject("Rejected: callback failed");
     }
-    
+
     await sleep(timeout);
   }
-
-  return Promise.reject("Rejected: count");
+  return Promise.reject("Rejected: max retries");
 }
 
-export async function doCallbacks(
-  callbacks: Array<() => unknown>,
+export async function doCallbacks<T>(
+  callbacks: Array<() => T | Promise<T>>,
   timeout: number
-) {
+): Promise<string | T> {
   for (let callback of callbacks) {
     try {
       await callback();
     } catch {
-      return Promise.reject("Callback: error");
+      return Promise.reject("Rejected: callback failed");
     }
 
     await sleep(timeout);
   }
-
-  return "good";
+  return "Resolved: callbacks succeed";
 }
